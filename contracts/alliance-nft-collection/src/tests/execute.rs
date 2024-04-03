@@ -253,6 +253,14 @@ fn break_nft_with_rewards() {
             ])
     );
 
+    // remove share
+    let previouse_balance = deps.querier.get_cw20_balance(MOCK_LST, MOCK_CONTRACT_ADDR);
+    deps.querier.set_cw20_balance(
+        MOCK_LST,
+        MOCK_CONTRACT_ADDR,
+        previouse_balance - 187500000u128,
+    );
+
     let nft = query_nft(deps.as_ref(), "1");
     assert_eq!(
         nft,
@@ -366,6 +374,225 @@ fn break_nft_with_rewards() {
         nft,
         RewardsResponse {
             rewards: vec![Asset::cw20(Addr::unchecked(MOCK_LST), 562500000u128)]
+        }
+    );
+}
+
+#[test]
+fn break_nft_with_multi_rewards() {
+    let mut deps = mock_dependencies();
+
+    setup_contract(&mut deps);
+    mint(deps.as_mut(), "1");
+    mint(deps.as_mut(), "2");
+    claim_alliance_emissions(&mut deps, Uint128::new(500_000_000));
+
+    // add multi-coin rewards
+    let info = mock_info("owner", &[]);
+    let env = mock_env();
+    let msg = ExecuteCollectionMsg::UpdateConfig(UpdateConfigMsg {
+        set_whitelisted_reward_assets: Some(vec![AssetInfoUnchecked::cw20("random")]),
+        dao_treasury_address: None,
+        dao_treasury_share: None,
+        add_whitelisted_reward_assets: None,
+    });
+    execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+    deps.querier
+        .set_cw20_balance("random", MOCK_CONTRACT_ADDR, 10_000000u128);
+
+    let nft = query_nft(deps.as_ref(), "1");
+    assert_eq!(
+        nft,
+        NftInfoResponse {
+            token_uri: None,
+            extension: Extension {
+                image: Some("image".to_string()),
+                image_data: None,
+                external_url: None,
+                description: None,
+                name: None,
+                attributes: Some(vec![
+                    Trait {
+                        display_type: None,
+                        trait_type: "trait_type".to_string(),
+                        value: "value".to_string()
+                    },
+                    Trait {
+                        display_type: None,
+                        trait_type: "broken".to_string(),
+                        value: "false".to_string()
+                    },
+                    Trait {
+                        display_type: None,
+                        trait_type: "rewards".to_string(),
+                        // 500 LUNA -> 416.66 ampLUNA
+                        // 41.66 ampLUNA treasury share
+                        // 375 ampLUNA total rewards
+                        // 187.5 ampLUNA per NFT
+                        value: "187500000".to_string()
+                    },
+                ]),
+                background_color: None,
+                animation_url: None,
+                youtube_url: None
+            }
+        }
+    );
+
+    let res = break_nft(deps.as_mut(), "1");
+    assert_eq!(
+        res,
+        Response::default()
+            .add_message(
+                AssetInfo::cw20(Addr::unchecked(MOCK_LST))
+                    .with_balance(Uint128::new(187500000))
+                    .transfer_msg("owner")
+                    .unwrap()
+            )
+            .add_message(
+                AssetInfo::cw20(Addr::unchecked("random"))
+                    .with_balance(Uint128::new(5_000000u128))
+                    .transfer_msg("owner")
+                    .unwrap()
+            )
+            .add_attributes(vec![
+                attr("action", "break_nft"),
+                attr("token_id", "1"),
+                attr("rewards", "187500000"),
+                attr("user_share", "0.5"),
+            ])
+    );
+
+    // remove share
+    let previouse_balance = deps.querier.get_cw20_balance(MOCK_LST, MOCK_CONTRACT_ADDR);
+    deps.querier.set_cw20_balance(
+        MOCK_LST,
+        MOCK_CONTRACT_ADDR,
+        previouse_balance - 187500000u128,
+    );
+    let previouse_balance = deps.querier.get_cw20_balance("random", MOCK_CONTRACT_ADDR);
+    deps.querier.set_cw20_balance(
+        "random",
+        MOCK_CONTRACT_ADDR,
+        previouse_balance - 5_000000u128,
+    );
+
+    let nft = query_nft(deps.as_ref(), "1");
+    assert_eq!(
+        nft,
+        NftInfoResponse {
+            token_uri: None,
+            extension: Extension {
+                image: Some("image".to_string()),
+                image_data: None,
+                external_url: None,
+                description: None,
+                name: None,
+                attributes: Some(vec![
+                    Trait {
+                        display_type: None,
+                        trait_type: "trait_type".to_string(),
+                        value: "value".to_string()
+                    },
+                    Trait {
+                        display_type: None,
+                        trait_type: "broken".to_string(),
+                        value: "true".to_string()
+                    },
+                    Trait {
+                        display_type: None,
+                        trait_type: "rewards".to_string(),
+                        value: "0".to_string()
+                    },
+                ]),
+                background_color: None,
+                animation_url: None,
+                youtube_url: None
+            }
+        }
+    );
+
+    // Claim more rewards from alliance module. All rewards should go to remaining NFTs
+    claim_alliance_emissions(&mut deps, Uint128::new(500_000_000));
+    let nft = query_nft(deps.as_ref(), "1");
+    assert_eq!(
+        nft,
+        NftInfoResponse {
+            token_uri: None,
+            extension: Extension {
+                image: Some("image".to_string()),
+                image_data: None,
+                external_url: None,
+                description: None,
+                name: None,
+                attributes: Some(vec![
+                    Trait {
+                        display_type: None,
+                        trait_type: "trait_type".to_string(),
+                        value: "value".to_string()
+                    },
+                    Trait {
+                        display_type: None,
+                        trait_type: "broken".to_string(),
+                        value: "true".to_string()
+                    },
+                    Trait {
+                        display_type: None,
+                        trait_type: "rewards".to_string(),
+                        value: "0".to_string()
+                    },
+                ]),
+                background_color: None,
+                animation_url: None,
+                youtube_url: None
+            }
+        }
+    );
+
+    let nft = query_nft(deps.as_ref(), "2");
+    assert_eq!(
+        nft,
+        NftInfoResponse {
+            token_uri: None,
+            extension: Extension {
+                image: Some("image".to_string()),
+                image_data: None,
+                external_url: None,
+                description: None,
+                name: None,
+                attributes: Some(vec![
+                    Trait {
+                        display_type: None,
+                        trait_type: "trait_type".to_string(),
+                        value: "value".to_string()
+                    },
+                    Trait {
+                        display_type: None,
+                        trait_type: "broken".to_string(),
+                        value: "false".to_string()
+                    },
+                    Trait {
+                        display_type: None,
+                        trait_type: "rewards".to_string(),
+                        // 187.5 (from before) + 375 (total added) for the single NFT
+                        value: "562500000".to_string()
+                    },
+                ]),
+                background_color: None,
+                animation_url: None,
+                youtube_url: None
+            }
+        }
+    );
+
+    let nft = query_rewards(deps.as_ref(), "2");
+    assert_eq!(
+        nft,
+        RewardsResponse {
+            rewards: vec![
+                Asset::cw20(Addr::unchecked(MOCK_LST), 562500000u128),
+                Asset::cw20(Addr::unchecked("random"), 5_000000u128)
+            ]
         }
     );
 }
