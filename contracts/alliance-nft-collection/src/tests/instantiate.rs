@@ -1,13 +1,12 @@
+use super::custom_querier::CustomQuerier;
 use crate::contract::instantiate::{instantiate, CONTRACT_NAME, CONTRACT_VERSION};
 use crate::contract::reply::reply;
+use crate::tests::execute::mock_dependencies;
 use crate::tests::helpers::{MOCK_DAO_TREASURY_ADDRESS, MOCK_LST};
-
 use alliance_nft_packages::instantiate::InstantiateCollectionMsg;
-use cosmwasm_std::testing::{
-    mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage,
-};
+use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage};
 use cosmwasm_std::{
-    Addr, Binary, CosmosMsg, Decimal, Empty, Env, MessageInfo, OwnedDeps, Reply, Response, SubMsg,
+    Addr, Binary, CosmosMsg, Decimal, Env, MessageInfo, OwnedDeps, Reply, Response, SubMsg,
     SubMsgResponse, SubMsgResult,
 };
 use cw2::get_contract_version;
@@ -25,7 +24,7 @@ fn test_instantiate_and_reply() {
 }
 
 pub fn intantiate_with_reply() -> (
-    OwnedDeps<MockStorage, MockApi, MockQuerier, Empty>,
+    OwnedDeps<MockStorage, MockApi, CustomQuerier>,
     Env,
     MessageInfo,
 ) {

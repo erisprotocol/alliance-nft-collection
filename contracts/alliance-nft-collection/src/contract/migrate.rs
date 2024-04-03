@@ -27,7 +27,7 @@ fn try_migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> Result<Response, Con
 
     if version == "1.1.0" {
         return match msg.version110_data {
-            Some(data) => return migrate_to_1_1_0(deps, env, data, contract_version.contract),
+            Some(data) => return migrate_to_1_1_0(deps, env, data, contract_version.version),
             None => Err(ContractError::MissingMigrationData(version)),
         };
     }
@@ -81,5 +81,8 @@ fn migrate_to_1_1_0(
     Ok(Response::new()
         .add_attribute("method", "migrate_to_1_1_0")
         .add_attribute("version", version)
+        .add_attribute("balance_native", balance_native)
+        .add_attribute("rewards_current", rewards_current)
+        .add_attribute("rewards_in_lst", rewards_in_lst)
         .add_message(bond_msg))
 }

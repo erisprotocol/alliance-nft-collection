@@ -1,17 +1,20 @@
 use crate::contract::execute::execute;
 use crate::tests::helpers::{
-    break_nft, claim_alliance_emissions, mint, query_config, query_nft, setup_contract,
-    MOCK_DAO_TREASURY_ADDRESS, MOCK_LST,
+    break_nft, claim_alliance_emissions, mint, query_config, query_nft, query_rewards,
+    setup_contract, MOCK_DAO_TREASURY_ADDRESS, MOCK_LST,
 };
 use alliance_nft_packages::eris::{AssetInfoExt, Hub};
 use alliance_nft_packages::errors::ContractError;
-use alliance_nft_packages::execute::{ExecuteCollectionMsg, MintMsg, UpdateConfigMsg};
+use alliance_nft_packages::execute::{
+    ExecuteCollectionMsg, MintMsg, UpdateConfigMsg, UpdateRewardsCallbackMsg,
+};
+use alliance_nft_packages::query::RewardsResponse;
 use alliance_nft_packages::state::{Config, Trait, ALLOWED_DENOM};
 use alliance_nft_packages::Extension;
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{attr, Addr, Decimal, OwnedDeps, Response, Uint128};
 use cw721::NftInfoResponse;
-use cw_asset::{AssetInfo, AssetInfoUnchecked};
+use cw_asset::{Asset, AssetInfo, AssetInfoUnchecked};
 
 use super::custom_querier::CustomQuerier;
 
@@ -357,6 +360,14 @@ fn break_nft_with_rewards() {
             }
         }
     );
+
+    let nft = query_rewards(deps.as_ref(), "2");
+    assert_eq!(
+        nft,
+        RewardsResponse {
+            rewards: vec![Asset::cw20(Addr::unchecked(MOCK_LST), 562500000u128)]
+        }
+    );
 }
 
 #[test]
@@ -383,6 +394,109 @@ fn break_nft_invalid() {
         ExecuteCollectionMsg::BreakNft("1".to_string()),
     )
     .unwrap_err();
+}
+
+#[test]
+fn stake_reward_callback() {
+    let mut deps = mock_dependencies();
+    setup_contract(&mut deps);
+    mint(deps.as_mut(), "1");
+
+    // Cannot break as a different owner
+    let err = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("anyone", &[]),
+        ExecuteCollectionMsg::StakeRewardsCallback {},
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        err,
+        ContractError::Unauthorized(
+            Addr::unchecked("anyone"),
+            Addr::unchecked(MOCK_CONTRACT_ADDR)
+        )
+    );
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteCollectionMsg::StakeRewardsCallback {},
+    )
+    .unwrap();
+
+    assert_eq!(
+        res.attributes,
+        vec![
+            attr("action", "stake_reward_callback"),
+            attr("tokens_to_stake", "0")
+        ]
+    );
+    deps.querier.set_bank_balance(100u128);
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteCollectionMsg::StakeRewardsCallback {},
+    )
+    .unwrap();
+    assert_eq!(
+        res.attributes,
+        vec![
+            attr("action", "stake_reward_callback"),
+            attr("tokens_to_stake", "100")
+        ]
+    );
+}
+
+#[test]
+fn update_rewards_callback() {
+    let mut deps = mock_dependencies();
+    setup_contract(&mut deps);
+    mint(deps.as_mut(), "1");
+
+    // Cannot break as a different owner
+    let err = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("anyone", &[]),
+        ExecuteCollectionMsg::UpdateRewardsCallback(UpdateRewardsCallbackMsg {
+            previous_lst_balance: Uint128::zero(),
+        }),
+    )
+    .unwrap_err();
+    assert_eq!(
+        err,
+        ContractError::Unauthorized(
+            Addr::unchecked("anyone"),
+            Addr::unchecked(MOCK_CONTRACT_ADDR)
+        )
+    );
+
+    deps.querier
+        .set_cw20_balance(MOCK_LST, MOCK_CONTRACT_ADDR, 100u128);
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteCollectionMsg::UpdateRewardsCallback(UpdateRewardsCallbackMsg {
+            previous_lst_balance: Uint128::zero(),
+        }),
+    )
+    .unwrap();
+
+    assert_eq!(
+        res.attributes,
+        vec![
+            attr("action", "update_rewards_callback"),
+            attr("rewards_collected", "90"),
+            attr("treasury_amount", "10")
+        ]
+    );
 }
 
 #[test]

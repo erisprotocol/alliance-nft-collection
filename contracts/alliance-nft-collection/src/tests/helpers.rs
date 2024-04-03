@@ -6,7 +6,7 @@ use crate::contract::query::query;
 use alliance_nft_packages::eris::{AssetInfoExt, Hub, QueryMsg};
 use alliance_nft_packages::execute::{ExecuteCollectionMsg, MintMsg, UpdateRewardsCallbackMsg};
 use alliance_nft_packages::instantiate::InstantiateCollectionMsg;
-use alliance_nft_packages::query::QueryCollectionMsg;
+use alliance_nft_packages::query::{QueryCollectionMsg, RewardsResponse};
 use alliance_nft_packages::state::{Config, Trait, ALLOWED_DENOM};
 use alliance_nft_packages::Extension;
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
@@ -79,6 +79,13 @@ pub fn break_nft(deps: DepsMut, token_id: &str) -> Response {
 
 pub fn query_nft(deps: Deps, token_id: &str) -> NftInfoResponse<Extension> {
     let msg = QueryCollectionMsg::NftInfo {
+        token_id: token_id.to_string(),
+    };
+    from_json(query(deps, mock_env(), msg).unwrap()).unwrap()
+}
+
+pub fn query_rewards(deps: Deps, token_id: &str) -> RewardsResponse {
+    let msg = QueryCollectionMsg::Rewards {
         token_id: token_id.to_string(),
     };
     from_json(query(deps, mock_env(), msg).unwrap()).unwrap()

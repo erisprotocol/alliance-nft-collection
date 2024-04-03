@@ -1,7 +1,9 @@
+use alliance_nft_packages::eris::StateResponse;
+use alliance_nft_packages::state::ALLOWED_DENOM;
 use cosmwasm_std::testing::{BankQuerier, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    coin, from_json, Coin, Empty, Querier, QuerierResult, QueryRequest, SystemError, SystemResult,
-    WasmQuery,
+    coin, from_json, to_json_binary, Coin, Decimal, Empty, Querier, QuerierResult, QueryRequest,
+    SystemError, SystemResult, Uint128, WasmQuery,
 };
 use cw20::Cw20QueryMsg;
 use std::collections::HashMap;
@@ -69,7 +71,7 @@ impl CustomQuerier {
 
     #[allow(dead_code)]
     pub(crate) fn set_bank_balance(&mut self, amount: u128) {
-        self.set_bank_balances(&[coin(amount, "utoken")]);
+        self.set_bank_balances(&[coin(amount, ALLOWED_DENOM)]);
     }
 
     pub fn handle_query(&self, request: &QueryRequest<Empty>) -> QuerierResult {
@@ -77,6 +79,24 @@ impl CustomQuerier {
             QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => {
                 if let Ok(query) = from_json::<Cw20QueryMsg>(msg) {
                     return self.cw20_querier.handle_query(contract_addr, query);
+                }
+
+                if let Ok(query) = from_json::<alliance_nft_packages::eris::QueryMsg>(msg) {
+                    return match query {
+                        alliance_nft_packages::eris::QueryMsg::State {} => {
+                            Ok(to_json_binary(&StateResponse {
+                                total_ustake: Uint128::new(100000),
+                                total_uluna: Uint128::new(120000),
+                                exchange_rate: Decimal::from_ratio(120u128, 100u128),
+                                unlocked_coins: vec![],
+                                unbonding: Uint128::zero(),
+                                available: Uint128::zero(),
+                                tvl_uluna: Uint128::new(120000),
+                            })
+                            .into())
+                            .into()
+                        }
+                    };
                 }
 
                 err_unsupported_query(msg)

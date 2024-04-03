@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Running coverage
+# docker run --security-opt seccomp=unconfined -v "/${PWD}:/volume" xd009642/tarpaulin sh -c "cargo tarpaulin --out lcov"
+
 set -e
 set -o pipefail
 

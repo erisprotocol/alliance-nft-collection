@@ -121,7 +121,7 @@ fn try_stake_reward_callback(
     if tokens_to_stake.is_zero() {
         return Ok(Response::new().add_attributes(vec![
             ("action", "stake_reward_callback"),
-            ("result", "nothing to stake"),
+            ("tokens_to_stake", "0"),
         ]));
     }
 
@@ -146,7 +146,10 @@ fn try_stake_reward_callback(
     });
 
     Ok(Response::new()
-        .add_attributes(vec![("action", "stake_reward_callback")])
+        .add_attributes(vec![
+            ("action", "stake_reward_callback"),
+            ("tokens_to_stake", &tokens_to_stake.to_string()),
+        ])
         .add_message(stake_msg)
         .add_message(update_rewards_msg))
 }
