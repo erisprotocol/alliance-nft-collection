@@ -240,21 +240,9 @@ fn try_change_owner(
         config.owner = new_owner.clone();
         Ok(config)
     })?;
-    let collection_addr = match cfg.nft_collection_address {
-        Some(addr) => addr,
-        None => return Err(ContractError::NftCollectionAddressNotSet {}),
-    };
 
-    let msg = WasmMsg::Execute {
-        contract_addr: collection_addr.to_string(),
-        msg: to_json_binary(&ExecuteCollectionMsg::ChangeOwner(new_owner.to_string())).unwrap(),
-        funds: vec![],
-    };
-
-    Ok(Response::default()
-        .add_attributes(vec![
-            ("action", "change_owner"),
-            ("new_owner", new_owner.to_string().as_str()),
-        ])
-        .add_message(msg))
+    Ok(Response::default().add_attributes(vec![
+        ("action", "change_owner"),
+        ("new_owner", new_owner.to_string().as_str()),
+    ]))
 }
